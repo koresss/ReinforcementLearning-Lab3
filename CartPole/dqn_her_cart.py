@@ -100,6 +100,7 @@ def main():
         s = torch.tensor(env.reset())
         goal=torch.tensor(env.reset())
         transitions = []
+        cumulative_return = 0
 
         for t in range(600):
             a = q.sample_action(s, epsilon,goal)      
@@ -110,17 +111,19 @@ def main():
             s = torch.tensor(s_prime)
 
             score += r
+            cumulative_return += r
             if done:
                 break
             
-        hindsight_goal_state = transitions[-1].state
-        for i in range(len(transitions)):
-            if np.linalg.norm(torch.tensor(transitions[i].next_state) - hindsight_goal_state) < theta:
-                memory.put((transitions[i].state, transitions[i].action,torch.tensor([2.0]), transitions[i].next_state,0.0, hindsight_goal_state))
-                break
-            else:
-                memory.put((transitions[i].state, transitions[i].action,transitions[i].reward, transitions[i].next_state,0.0, hindsight_goal_state))
-        
+        if cumulative_return < 200:
+            hindsight_goal_state = transitions[-1].state
+            for i in range(len(transitions)):
+                if np.linalg.norm(torch.tensor(transitions[i].next_state) - hindsight_goal_state) < theta:
+                    memory.put((transitions[i].state, transitions[i].action,torch.tensor([2.0]), transitions[i].next_state,0.0, hindsight_goal_state))
+                    break
+                else:
+                    memory.put((transitions[i].state, transitions[i].action,transitions[i].reward, transitions[i].next_state,0.0, hindsight_goal_state))
+            
         if memory.size()>2000:
             train(q, q_target, memory, optimizer)
 
