@@ -90,7 +90,8 @@ def main():
     q_target.load_state_dict(q.state_dict())
     memory = ReplayBuffer()
 
-    print_interval = 20
+    theta = 0.0001
+    print_interval = 100
     score = 0.0  
     optimizer = optim.Adam(q.parameters(), lr=learning_rate)
 
@@ -111,12 +112,15 @@ def main():
             score += r
             if done:
                 break
-        hindsight_goal_state=transitions[math.ceil(len(transitions)/2)].state
+            
+        hindsight_goal_state = transitions[-1].state
         for i in range(len(transitions)):
-            if np.array_equal(transitions[i].next_state, hindsight_goal_state):
+            if np.linalg.norm(torch.tensor(transitions[i].next_state) - hindsight_goal_state) < theta:
                 memory.put((transitions[i].state, transitions[i].action,torch.tensor([2.0]), transitions[i].next_state,0.0, hindsight_goal_state))
+                break
             else:
                 memory.put((transitions[i].state, transitions[i].action,transitions[i].reward, transitions[i].next_state,0.0, hindsight_goal_state))
+        
         if memory.size()>2000:
             train(q, q_target, memory, optimizer)
 

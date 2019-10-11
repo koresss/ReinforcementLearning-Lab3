@@ -57,6 +57,7 @@ class BitFlipEnv():
         while np.array_equal(self.init_state, self.target_state):
             self.target_state = torch.randint(2, size=(self.n,))
         self.curr_state = self.init_state.clone()
+        
 Transition = namedtuple('Transition', 
                        ('state', 'action', 'next_state', 'reward', 'goal'))
 
@@ -86,6 +87,8 @@ class ReplayMemory(object):
     
     def __len__(self):
         return len(self.memory)
+    
+    
 NUM_BITS = 8
 HIDDEN_SIZE = 256
 class FNN(nn.Module):
@@ -112,6 +115,8 @@ target_net.eval()
 
 optimizer = optim.RMSprop(policy_net.parameters())
 memory = ReplayMemory(1e6)
+
+
 def select_action(state, goal, greedy=False):
     '''
     Select an action given the state and goal acc to policy_net
@@ -137,6 +142,8 @@ def select_action(state, goal, greedy=False):
             return policy_net(state_goal).argmax().view(1,1)
     else: 
         return torch.tensor([[random.randrange(NUM_BITS)]], device=device, dtype=torch.long)
+    
+    
 def optimize_model():
     '''
     optimize the model, i.e. perform one step of Q-learning using BATCH_SIZE number of examples
@@ -179,18 +186,17 @@ def optimize_model():
     for param in policy_net.parameters():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
+    
+    
 HindsightTransition = namedtuple('HindsightTransition', 
                        ('state', 'action', 'next_state', 'reward'))
 CHECK_RATE = 100 # evaluate success on the last 100 episodes
-MODEL_PATH = '_her_policy_net.pt'
-WEIGHTS_PATH = '_her_policy_net_weights.pt'
-FIGURE_PATH = '_her.png'
-SAVE_MODEL = True
-LOAD_MODEL = False
 num_episodes = 3000
+episode_length = 8
 EPS_DECAY = num_episodes * NUM_BITS * 0.05 # decay rate
 env = BitFlipEnv(NUM_BITS)
-success = 0
+success = 0.0
+score = 0.0
 episodes = [] # every 100 episodes
 success_rate = [] # append success rate of last 100 episodes
 # train the network
@@ -201,7 +207,7 @@ for i_episode in range(num_episodes):
     transitions = []
     episode_success = False
     # for bit length
-    for t in range(NUM_BITS):
+    for t in range(episode_length):
         
         if episode_success:
             continue
@@ -217,8 +223,8 @@ for i_episode in range(num_episodes):
         transitions.append(HindsightTransition(state, action, next_state, reward))
 
         state = next_state
-        
-        optimize_model()
+        score += reward.item()
+        #optimize_model()
         if reward == 0:
             if episode_success:
                 continue
@@ -235,21 +241,24 @@ for i_episode in range(num_episodes):
                 # if goal state achieved
                 if np.array_equal(transitions[i].next_state, new_goal_state):
                     memory.push(transitions[i].state.to(device), transitions[i].action.to(device), transitions[i].next_state.to(device), torch.tensor([0]).to(device), new_goal_state.to(device))
-                    optimize_model()
+                    #optimize_model()
                     break
 
                 memory.push(transitions[i].state.to(device), transitions[i].action.to(device), transitions[i].next_state.to(device), transitions[i].reward.to(device), new_goal_state.to(device))
-                optimize_model()
+    
+    for i in range(10):
+        optimize_model()
 
     # update the target networks weights 
     if i_episode % TARGET_UPDATE == 0:
         target_net.load_state_dict(policy_net.state_dict())
 
     if i_episode % CHECK_RATE == 0:
-        print('success rate for last {} episodes after {} episodes of training: {}%'.format(CHECK_RATE, i_episode, success/CHECK_RATE * 100))
+        print('# of episode : {}, avg score : {:.1f}, success rate : {:.1f}%,'.format(i_episode, score/CHECK_RATE , success/CHECK_RATE * 100))
         success_rate.append(success/CHECK_RATE)
         episodes.append(i_episode)
-        success = 0
+        success = 0.0
+        score = 0.0
 
 episodes.append(num_episodes)
 success_rate.append(success/CHECK_RATE)
