@@ -112,7 +112,7 @@ class Qnet(nn.Module):
 
 
 def train(q, q_target, memory, optimizer):
-    for i in range(10):
+    #for i in range(10):
         s, a, r, s_prime, done_mask = memory.sample(batch_size)
 
         q_out = q(s)
@@ -126,12 +126,13 @@ def train(q, q_target, memory, optimizer):
         optimizer.step()
         
 
-STATE_SIZE = 8
-HIDDEN_SIZE = 256
-ACTION_NO = 8
-num_episodes = 3000
-episode_length = 8
-def main():
+
+def cer_bitflip():
+    STATE_SIZE = 8
+    HIDDEN_SIZE = 256
+    ACTION_NO = 8
+    num_episodes = 3000
+    episode_length = 8
     env = BitFlipEnv()
     q = Qnet(STATE_SIZE, HIDDEN_SIZE, ACTION_NO)
     q_target = Qnet(STATE_SIZE, HIDDEN_SIZE, ACTION_NO)
@@ -142,6 +143,7 @@ def main():
     score = 0.0
     optimizer = optim.Adam(q.parameters(), lr=learning_rate)
     success = 0.0
+    success_rate = []
 
     for n_epi in range(num_episodes):
         epsilon = max(0.01, 0.08 - 0.01 * (n_epi / 200))  # Linear annealing from 8% to 1%
@@ -160,17 +162,18 @@ def main():
                 success += 1
                 break
 
-        if memory.size() > 2000:
-            train(q, q_target, memory, optimizer)
+            if memory.size() > 2000:
+                train(q, q_target, memory, optimizer)
 
         if n_epi % print_interval == 0 and n_epi != 0:
             q_target.load_state_dict(q.state_dict())
+            success_rate.append(success / print_interval)
             print("# of episode :{}, avg score : {:.1f}, success rate : {:.1f}%, epsilon : {:.1f}%".format(
                 n_epi, score / print_interval, success / print_interval * 100, epsilon * 100))
             score = 0.0
             success = 0.0
     
-
+    return success_rate
 
 if __name__ == '__main__':
-    main()
+    cer_bitflip()

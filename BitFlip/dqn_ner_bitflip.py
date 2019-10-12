@@ -23,11 +23,11 @@ class BitFlipEnv():
         The init and target stae should not be equal
         '''
         self.n = n
-        self.init_state = np.random.randint(2, size=n)
-        self.target_state = np.random.randint(2, size=n)
+        self.init_state = torch.randint(2, size=(n,))
+        self.target_state = torch.randint(2, size=(n,))
         while np.array_equal(self.init_state, self.target_state):
-            self.target_state =np.random.randint(2, size=n)
-        self.curr_state = self.init_state.copy()
+            self.target_state =torch.randint(2, size=(n,))
+        self.curr_state = self.init_state.clone()
         
     def step(self, action):
         '''
@@ -38,19 +38,19 @@ class BitFlipEnv():
         '''
         self.curr_state[action] = 1 - self.curr_state[action]
         if np.array_equal(self.curr_state, self.target_state):
-            return self.curr_state.copy(), 0, True
+            return self.curr_state.clone(), 0, True
         else:
-            return self.curr_state.copy(), -1, False
+            return self.curr_state.clone(), -1, False
         
     def reset(self):
         '''
         Reset the bit flip environment
         '''
-        self.init_state = np.random.randint(2, size=self.n)
-        self.target_state = np.random.randint(2, size=self.n)
+        self.init_state = torch.randint(2, size=(self.n,))
+        self.target_state = torch.randint(2, size=(self.n,))
         while np.array_equal(self.init_state, self.target_state):
-            self.target_state = np.random.randint(2, size=self.n)
-        self.curr_state = self.init_state.copy()
+            self.target_state = torch.randint(2, size=(self.n,))
+        self.curr_state = self.init_state.clone()
 
 
 class ReplayBuffer():
@@ -68,10 +68,10 @@ class ReplayBuffer():
         
         for transition in mini_batch:
             s, a, r, s_prime, done_mask = transition
-            s_lst.append(s)
+            s_lst.append(np.array(s))
             a_lst.append([a])
             r_lst.append([r])
-            s_prime_lst.append(s_prime)
+            s_prime_lst.append(np.array(s_prime))
             done_mask_lst.append([done_mask])
 
         return torch.tensor(s_lst, dtype=torch.float), torch.tensor(a_lst), \
@@ -103,7 +103,7 @@ class Qnet(nn.Module):
 
 
 def train(q, q_target, memory, optimizer):
-    for i in range(10):
+    #for i in range(10):
         s, a, r, s_prime, done_mask = memory.sample(batch_size)
 
         q_out = q(s)
@@ -117,13 +117,13 @@ def train(q, q_target, memory, optimizer):
         optimizer.step()
         
 
-STATE_SIZE = 8
-HIDDEN_SIZE = 256
-ACTION_NO = 8
-num_episodes = 3000
-episode_length = 8
-def main():
-    env = BitFlipEnv()
+def ner_bitflip():
+    STATE_SIZE = 8
+    HIDDEN_SIZE = 256
+    ACTION_NO = 8
+    num_episodes = 3000
+    episode_length = 8
+    env = BitFlipEnv(n=STATE_SIZE)
     q = Qnet(STATE_SIZE, HIDDEN_SIZE, ACTION_NO)
     q_target = Qnet(STATE_SIZE, HIDDEN_SIZE, ACTION_NO)
     q_target.load_state_dict(q.state_dict())
@@ -133,35 +133,37 @@ def main():
     score = 0.0
     success = 0.0
     optimizer = optim.Adam(q.parameters(), lr=learning_rate)
-
+    success_rate = []
+    
     for n_epi in range(num_episodes):
         epsilon = max(0.01, 0.08 - 0.01 * (n_epi / 200))  # Linear annealing from 8% to 1%
         env.reset()
-        s = env.curr_state.copy()
+        s = env.curr_state.clone()
 
         for t in range(episode_length):
-            a = q.sample_action(torch.from_numpy(s).float(), epsilon)
+            a = q.sample_action(s.float(), epsilon)
             s_prime, r, done = env.step(a)
             done_mask = 0.0 if done else 1.0
             memory.put((s, a, r / 100.0, s_prime, done_mask))
-            s = s_prime
+            s = s_prime.clone()
 
             score += r
             if done:
                 success += 1
                 break
 
-        if memory.size() > 2000:
-            train(q, q_target, memory, optimizer)
+            if memory.size() > 2000:
+                train(q, q_target, memory, optimizer)
 
         if n_epi % print_interval == 0 and n_epi != 0:
             q_target.load_state_dict(q.state_dict())
+            success_rate.append(success / print_interval)
             print("# of episode :{}, avg score : {:.1f}, success rate : {:.1f}%, epsilon : {:.1f}%".format(
                 n_epi, score / print_interval, success / print_interval * 100, epsilon * 100))
             score = 0.0
             success = 0.0
     
-
+    return success_rate
 
 if __name__ == '__main__':
-    main()
+    ner_bitflip()
