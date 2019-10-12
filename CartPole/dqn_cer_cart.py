@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import mujoco_py
 
 # Hyperparameters
 learning_rate = 0.0005
@@ -73,7 +74,7 @@ class Qnet(nn.Module):
 
 
 def train(q, q_target, memory, optimizer):
-    for i in range(10):
+    #for i in range(10):
         s, a, r, s_prime, done_mask = memory.sample(batch_size)
 
         q_out = q(s)
@@ -87,20 +88,24 @@ def train(q, q_target, memory, optimizer):
         optimizer.step()
 
 
-def main():
+def cer_cart():
     env = gym.make('CartPole-v1')
     q = Qnet(4, 256, 2)
     q_target = Qnet(4, 256, 2)
     q_target.load_state_dict(q.state_dict())
     memory = ReplayBuffer()
-
-    print_interval = 20
+    
+    success = 0
+    success_rate = []
+    score_rate = []
+    print_interval = 100
     score = 0.0
     optimizer = optim.Adam(q.parameters(), lr=learning_rate)
 
     for n_epi in range(10000):
         epsilon = max(0.01, 0.08 - 0.01 * (n_epi / 200))  # Linear annealing from 8% to 1%
         s = env.reset()
+        reward = 0
 
         for t in range(600):
             a = q.sample_action(torch.from_numpy(s).float(), epsilon)
@@ -110,19 +115,26 @@ def main():
             s = s_prime
 
             score += r
+            reward += r
             if done:
+                if reward == 500:
+                    success += 1
                 break
 
-        if memory.size() > 2000:
-            train(q, q_target, memory, optimizer)
+            if memory.size() > 2000:
+                train(q, q_target, memory, optimizer)
 
         if n_epi % print_interval == 0 and n_epi != 0:
             q_target.load_state_dict(q.state_dict())
-            print("# of episode :{}, avg score : {:.1f}, buffer size : {}, epsilon : {:.1f}%".format(
-                n_epi, score / print_interval, memory.size(), epsilon * 100))
+            score_rate.append(score / print_interval)
+            success_rate.append(success / print_interval)
+            print("# of episode :{}, avg score : {:.1f}, success rate : {:.1f}%, epsilon : {:.1f}%".format(
+                n_epi, score / print_interval, success / print_interval * 100, epsilon * 100))
             score = 0.0
+            success = 0
+            
     env.close()
-
+    return success_rate, score_rate
 
 if __name__ == '__main__':
-    main()
+    cer_cart()

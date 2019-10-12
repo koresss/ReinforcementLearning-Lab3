@@ -66,7 +66,7 @@ class Qnet(nn.Module):
             return out.argmax().item()
             
 def train(q, q_target, memory, optimizer):
-    for i in range(10):
+    for i in range(30):
         s,a,r,s_prime,done_mask,goal = memory.sample(batch_size)
         goal=goal.to(dtype=torch.float64)
         s_prime=s_prime.to(dtype=torch.float64)
@@ -82,7 +82,7 @@ def train(q, q_target, memory, optimizer):
         loss.backward()
         optimizer.step()
 
-def main():
+def her_cart():
     HindsightTransition = namedtuple('HindsightTransition', ('state', 'action', 'next_state', 'reward'))
     env = gym.make('CartPole-v1')
     q = Qnet()
@@ -90,6 +90,9 @@ def main():
     q_target.load_state_dict(q.state_dict())
     memory = ReplayBuffer()
 
+    success = 0
+    success_rate = []
+    score_rate = []
     theta = 0.0001
     print_interval = 100
     score = 0.0  
@@ -100,7 +103,7 @@ def main():
         s = torch.tensor(env.reset())
         goal=torch.tensor(env.reset())
         transitions = []
-        cumulative_return = 0
+        reward = 0
 
         for t in range(600):
             a = q.sample_action(s, epsilon,goal)      
@@ -111,28 +114,33 @@ def main():
             s = torch.tensor(s_prime)
 
             score += r
-            cumulative_return += r
+            reward += r
             if done:
-                break
-            
-        if cumulative_return < 200:
-            hindsight_goal_state = transitions[-1].state
-            for i in range(len(transitions)):
-                if np.linalg.norm(torch.tensor(transitions[i].next_state) - hindsight_goal_state) < theta:
-                    memory.put((transitions[i].state, transitions[i].action,torch.tensor([2.0]), transitions[i].next_state,0.0, hindsight_goal_state))
-                    break
-                else:
-                    memory.put((transitions[i].state, transitions[i].action,transitions[i].reward, transitions[i].next_state,0.0, hindsight_goal_state))
+                if reward == 500:
+                    success += 1
+                break         
+        
+        
+        for i in range(len(transitions)):
+            hindsight_goal_state = transitions[np.random.randint(i,len(transitions))].state            
+            if np.linalg.norm(torch.tensor(transitions[i].next_state) - hindsight_goal_state) < theta:
+                memory.put((transitions[i].state, transitions[i].action,torch.tensor([2.0]), transitions[i].next_state,0.0, hindsight_goal_state))
+            else:
+                memory.put((transitions[i].state, transitions[i].action,transitions[i].reward, transitions[i].next_state,0.0, hindsight_goal_state))
             
         if memory.size()>2000:
             train(q, q_target, memory, optimizer)
 
         if n_epi%print_interval==0 and n_epi!=0:            
             q_target.load_state_dict(q.state_dict())
-            print("# of episode :{}, avg score : {:.1f}, buffer size : {}, epsilon : {:.1f}%".format(
-                                                            n_epi, score/print_interval, memory.size(), epsilon*100))
+            score_rate.append(score / print_interval)
+            success_rate.append(success / print_interval)
+            print("# of episode :{}, avg score : {:.1f}, success rate : {:.1f}%, epsilon : {:.1f}%".format(
+                n_epi, score / print_interval, success / print_interval * 100, epsilon * 100))
             score = 0.0
+            success = 0
     env.close()
+    return success_rate, score_rate
 
 if __name__ == '__main__':
-    main()
+    her_cart()
