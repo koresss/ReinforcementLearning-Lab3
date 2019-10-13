@@ -78,6 +78,9 @@ class PriorityQueueBuffer:
         weights = self.get_is_weights(probs)
         transitions = self._decode(transitions)
         return transitions, weights, indexes
+    
+    def size(self):
+        return self.length
 
 
 class Qnet(nn.Module):
@@ -125,7 +128,7 @@ def train(q, q_target, memory, optimizer):
     # might have a problem
     loss = (torch.FloatTensor(weights) * F.mse_loss(q_a, target)).mean()
 
-    memory.update_indices(indices, target)
+    memory.update_indices(indices, torch.abs(target-q_a))
 
     optimizer.zero_grad()
     loss.backward()
@@ -170,11 +173,12 @@ def priority_cart():
             #     train_counter += 1
 
             if done:
-                if reward == 500:
+                if reward == 499:
                     success += 1
                 break
-        if n_epi % train_interval ==0:
-            train(q, q_target, memory, optimizer)
+            
+            if memory.size() > 2000:
+                train(q, q_target, memory, optimizer)
 
         if n_epi % print_interval == 0 and n_epi != 0:
             q_target.load_state_dict(q.state_dict())
