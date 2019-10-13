@@ -12,8 +12,9 @@ import torch.optim as optim
 batch_size = 32
 gamma = 0.98
 learning_rate = 0.0005
-train_interval = 500
-
+train_interval = 10
+# took a look at https://github.com/rlcode/per/blob/master/prioritized_memory.py
+# took a look at https://github.com/rlcode/per/blob/master/cartpole_per.py
 
 class PriorityQueueBuffer:
     # rank priority priority buffer
@@ -52,7 +53,7 @@ class PriorityQueueBuffer:
             done, dtype=torch.float)
 
     def get_is_weights(self, probs):
-        is_weights = torch.power(torch.tensor(probs) * self.length, -self.beta)
+        is_weights = torch.pow(torch.tensor(probs) * self.length, -self.beta)
         is_weights /= torch.max(is_weights)
         return is_weights
 
@@ -113,15 +114,16 @@ def get_priority(s, a, r, s_prime, done_mask, q, q_target):
 
 
 def train(q, q_target, memory, optimizer):
-    s, a, r, s_prime, done_mask, weights, indices = memory.sample(batch_size)
+    transitions, weights, indices = memory.sample(batch_size)
+    s, a, r, s_prime, done_mask = transitions
 
     q_out = q(s)
-    q_a = q_out.gather(1, a)
+    q_a = q_out.gather(1, a.view(-1,1)).view(-1,1)
     max_q_prime = q_target(s_prime).max(1)[0].unsqueeze(1)
-    target = r + gamma * max_q_prime * done_mask
+    target = r.view(-1,1) + gamma * max_q_prime * done_mask.view(-1,1)
 
     # might have a problem
-    loss = torch.FloatTensor(weights) * F.smooth_l1_loss(q_a, target)
+    loss = (torch.FloatTensor(weights) * F.mse_loss(q_a, target)).mean()
 
     memory.update_indices(indices, target)
 
@@ -164,14 +166,15 @@ def priority_cart():
             score += r
             reward += r
 
-            if train_counter % train_interval == 0:
-                train(q, q_target, memory, optimizer)
-                train_counter += 1
+            # if train_counter % train_interval == 0:
+            #     train_counter += 1
 
             if done:
                 if reward == 500:
                     success += 1
                 break
+        if n_epi % train_interval ==0:
+            train(q, q_target, memory, optimizer)
 
         if n_epi % print_interval == 0 and n_epi != 0:
             q_target.load_state_dict(q.state_dict())
