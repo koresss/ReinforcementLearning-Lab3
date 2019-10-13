@@ -126,7 +126,8 @@ def train(q, q_target, memory, optimizer):
     q_out = q(s)
     q_a = q_out.gather(1, a.view(-1, 1)).view(-1, 1)
 
-    indices = q_a.max(1)[1].view(-1, 1)
+    q_a_prime = q(s_prime)
+    indices = q_a_prime.max(1)[1].view(-1, 1)
 
     max_q_prime = q_target(s_prime).gather(1, indices)
     target = r.view(-1, 1) + gamma * max_q_prime * done_mask.view(-1, 1)
@@ -146,8 +147,8 @@ def priority_cart():
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
 
-    q = Qnet(state_size, 256, action_size)
-    q_target = Qnet(state_size, 256, action_size)
+    q = Qnet(state_size, 256, action_size).cuda()
+    q_target = Qnet(state_size, 256, action_size).cuda()
     q_target.load_state_dict(q.state_dict())
     memory = PriorityQueueBuffer()
 
