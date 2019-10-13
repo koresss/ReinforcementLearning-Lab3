@@ -13,12 +13,15 @@ batch_size = 32
 gamma = 0.98
 learning_rate = 0.0005
 train_interval = 10
+BUFFER_SIZE = 10000
+
+
 # took a look at https://github.com/rlcode/per/blob/master/prioritized_memory.py
 # took a look at https://github.com/rlcode/per/blob/master/cartpole_per.py
 
 class PriorityQueueBuffer:
     # rank priority priority buffer
-    def __init__(self, capacity=20000, epsilon=1e-5, alpha=0.7, beta=1):
+    def __init__(self, capacity=BUFFER_SIZE, epsilon=1e-5, alpha=0.7, beta=1):
         self.buffer = SumTree(capacity=capacity)
         self.capacity = capacity
         self.length = 0
@@ -78,7 +81,7 @@ class PriorityQueueBuffer:
         weights = self.get_is_weights(probs)
         transitions = self._decode(transitions)
         return transitions, weights, indexes
-    
+
     def size(self):
         return self.length
 
@@ -121,14 +124,17 @@ def train(q, q_target, memory, optimizer):
     s, a, r, s_prime, done_mask = transitions
 
     q_out = q(s)
-    q_a = q_out.gather(1, a.view(-1,1)).view(-1,1)
-    max_q_prime = q_target(s_prime).max(1)[0].unsqueeze(1)
-    target = r.view(-1,1) + gamma * max_q_prime * done_mask.view(-1,1)
+    q_a = q_out.gather(1, a.view(-1, 1)).view(-1, 1)
+
+    indices = q_a.max(1)[1].view(-1, 1)
+
+    max_q_prime = q_target(s_prime).gather(1, indices)
+    target = r.view(-1, 1) + gamma * max_q_prime * done_mask.view(-1, 1)
 
     # might have a problem
     loss = (torch.FloatTensor(weights) * F.mse_loss(q_a, target)).mean()
 
-    memory.update_indices(indices, torch.abs(target-q_a))
+    memory.update_indices(indices, torch.abs(target - q_a))
 
     optimizer.zero_grad()
     loss.backward()
@@ -145,7 +151,6 @@ def priority_cart():
     q_target.load_state_dict(q.state_dict())
     memory = PriorityQueueBuffer()
 
-    train_counter = 1
     success = 0
     success_rate = []
     score_rate = []
@@ -176,8 +181,7 @@ def priority_cart():
                 if reward == 499:
                     success += 1
                 break
-            
-            if memory.size() > 2000:
+            if memory.size() >= BUFFER_SIZE:
                 train(q, q_target, memory, optimizer)
 
         if n_epi % print_interval == 0 and n_epi != 0:
