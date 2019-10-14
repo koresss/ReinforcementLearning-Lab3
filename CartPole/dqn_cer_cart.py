@@ -88,7 +88,12 @@ def train(q, q_target, memory, optimizer):
         optimizer.step()
 
 
-def cer_cart():
+def cer_cart(n_episodes_, batch_size_, buf_size_):
+    global buffer_limit
+    buffer_limit = buf_size_
+    global batch_size
+    batch_size = batch_size_
+
     env = gym.make('CartPole-v1')
     q = Qnet(4, 256, 2)
     q_target = Qnet(4, 256, 2)
@@ -102,7 +107,7 @@ def cer_cart():
     score = 0.0
     optimizer = optim.Adam(q.parameters(), lr=learning_rate)
 
-    for n_epi in range(10000):
+    for n_epi in range(n_episodes_):
         epsilon = max(0.01, 0.08 - 0.01 * (n_epi / 200))  # Linear annealing from 8% to 1%
         s = env.reset()
         reward = 0
@@ -135,6 +140,3 @@ def cer_cart():
             
     env.close()
     return success_rate, score_rate
-
-if __name__ == '__main__':
-    cer_cart()

@@ -142,7 +142,12 @@ def train(q, q_target, memory, optimizer):
     optimizer.step()
 
 
-def priority_cart():
+def per_cart(n_episodes_, batch_size_, buf_size_):
+    global BUFFER_SIZE
+    BUFFER_SIZE = buf_size_
+    global batch_size
+    batch_size = batch_size_
+    
     env = gym.make('CartPole-v1')
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
@@ -159,7 +164,7 @@ def priority_cart():
     score = 0.0
     optimizer = optim.Adam(q.parameters(), lr=learning_rate)
 
-    for n_epi in range(10000):
+    for n_epi in range(n_episodes_):
         epsilon = max(0.01, 0.08 - 0.01 * (n_epi / 200))  # Linear annealing from 8% to 1%
         s = env.reset()
         reward = 0
@@ -196,8 +201,3 @@ def priority_cart():
 
     env.close()
     return success_rate, score_rate
-
-
-if __name__ == '__main__':
-    priority_cart()
-

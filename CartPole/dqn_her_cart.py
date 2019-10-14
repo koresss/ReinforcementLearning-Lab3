@@ -82,7 +82,12 @@ def train(q, q_target, memory, optimizer):
         loss.backward()
         optimizer.step()
 
-def her_cart():
+def her_cart(n_episodes_, batch_size_, buf_size_):
+    global buffer_limit
+    buffer_limit = buf_size_
+    global batch_size
+    batch_size = batch_size_
+
     HindsightTransition = namedtuple('HindsightTransition', ('state', 'action', 'next_state', 'reward'))
     env = gym.make('CartPole-v1')
     q = Qnet()
@@ -98,7 +103,7 @@ def her_cart():
     score = 0.0  
     optimizer = optim.Adam(q.parameters(), lr=learning_rate)
 
-    for n_epi in range(10000):
+    for n_epi in range(n_episodes_):
         epsilon = max(0.01, 0.08 - 0.01*(n_epi/200)) #Linear annealing from 8% to 1%
         s = torch.tensor(env.reset())
         goal=torch.tensor(env.reset())
@@ -141,6 +146,3 @@ def her_cart():
             success = 0
     env.close()
     return success_rate, score_rate
-
-if __name__ == '__main__':
-    her_cart()
