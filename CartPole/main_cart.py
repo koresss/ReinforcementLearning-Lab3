@@ -9,7 +9,7 @@ if __name__ == "__main__":
     num_episodes = 3000
     # Hyperparameters of the Experience Replay
     batch_size = 32
-    buf_size = 50.000
+    buf_size = 50_000
 
     # NER
     scores_ner = []

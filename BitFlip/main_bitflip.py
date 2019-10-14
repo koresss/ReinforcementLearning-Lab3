@@ -8,7 +8,7 @@ if __name__ == "__main__":
 	num_episodes = 3000
 	# Hyperparameters of the Experience Replay
 	batch_size = 128
-	buf_size = 50.000
+	buf_size = 50_000
 
 	# NER
 	succes_rates_ner = []
@@ -42,7 +42,8 @@ if __name__ == "__main__":
 				,buf_size_=buf_size
 				)
 			)
-		
+	
+	
 	# TODO: Add PER
 	# TODO: Compute Standard error of the mean for each interval
 	# TODO: Plot means for all the runs with the confidence interval
