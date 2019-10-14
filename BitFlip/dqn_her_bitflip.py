@@ -193,7 +193,17 @@ def optimize_model():
     
 num_episodes = 3000    
 EPS_DECAY = num_episodes * NUM_BITS * 0.05 # decay rate  
-def her_bitflip():        
+def her_bitflip(n_episodes_, batch_size_, buf_size_): 
+    # Change global variables values (sorry for shitty code)
+    global num_episodes
+    num_episodes = n_episodes_
+    global EPS_DECAY
+    EPS_DECAY = num_episodes_ * NUM_BITS * 0.05 # decay rate  
+    global BATCH_SIZE
+    BATCH_SIZE = batch_size_
+    global memory
+    memory = ReplayMemory(buf_size_)
+
     HindsightTransition = namedtuple('HindsightTransition', 
                            ('state', 'action', 'next_state', 'reward'))
     CHECK_RATE = 100 # evaluate success on the last 100 episodes
@@ -266,6 +276,3 @@ def her_bitflip():
             score = 0.0
 
     return success_rate
-
-if __name__ == '__main__':
-    her_bitflip()

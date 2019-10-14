@@ -117,16 +117,20 @@ def train(q, q_target, memory, optimizer):
         optimizer.step()
         
 
-def ner_bitflip():
+def ner_bitflip(n_episodes_, batch_size_, buf_size_):
     STATE_SIZE = 8
     HIDDEN_SIZE = 256
     ACTION_NO = 8
-    num_episodes = 3000
+    num_episodes = n_episodes_
     episode_length = 8
     env = BitFlipEnv(n=STATE_SIZE)
     q = Qnet(STATE_SIZE, HIDDEN_SIZE, ACTION_NO)
     q_target = Qnet(STATE_SIZE, HIDDEN_SIZE, ACTION_NO)
     q_target.load_state_dict(q.state_dict())
+    global buffer_limit
+    buffer_limit = buf_size_
+    global batch_size
+    batch_size = batch_size_
     memory = ReplayBuffer()
 
     print_interval = 100
@@ -164,6 +168,4 @@ def ner_bitflip():
             success = 0.0
     
     return success_rate
-
-if __name__ == '__main__':
-    ner_bitflip()
+    
