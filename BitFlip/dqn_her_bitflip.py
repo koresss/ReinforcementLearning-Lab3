@@ -198,11 +198,25 @@ def her_bitflip(n_episodes_, batch_size_, buf_size_):
     global num_episodes
     num_episodes = n_episodes_
     global EPS_DECAY
-    EPS_DECAY = num_episodes_ * NUM_BITS * 0.05 # decay rate  
+    EPS_DECAY = n_episodes_ * NUM_BITS * 0.05 # decay rate  
     global BATCH_SIZE
     BATCH_SIZE = batch_size_
     global memory
     memory = ReplayMemory(buf_size_)
+
+    global steps_done
+    steps_done = 0 # for decayin eps
+
+    global policy_net
+    policy_net = FNN().to(device)
+
+    global target_net
+    target_net = FNN().to(device)
+    target_net.load_state_dict(policy_net.state_dict())
+    target_net.eval()
+    
+    global optimizer
+    optimizer = optim.RMSprop(policy_net.parameters())
 
     HindsightTransition = namedtuple('HindsightTransition', 
                            ('state', 'action', 'next_state', 'reward'))

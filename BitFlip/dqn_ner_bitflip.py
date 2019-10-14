@@ -159,7 +159,7 @@ def ner_bitflip(n_episodes_, batch_size_, buf_size_):
             if memory.size() > 2000:
                 train(q, q_target, memory, optimizer)
 
-        if n_epi % print_interval == 0 and n_epi != 0:
+        if n_epi % print_interval == 99:
             q_target.load_state_dict(q.state_dict())
             success_rate.append(success / print_interval)
             print("# of episode :{}, avg score : {:.1f}, success rate : {:.1f}%, epsilon : {:.1f}%".format(
