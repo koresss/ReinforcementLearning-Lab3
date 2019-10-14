@@ -100,11 +100,12 @@ def get_goal(s):
     #plt.imshow(goal)
     return goal
 
-def her_cube(ep_number = 3000, buffer = 20000, batch = 32):
+def her_cube(n_episodes_, batch_size_, buf_size_):
     global buffer_limit
-    buffer_limit = buffer
+    buffer_limit = buf_size_
     global batch_size
-    batch_size = batch
+    batch_size = batch_size_
+    
     HindsightTransition = namedtuple('HindsightTransition', ('state', 'action', 'next_state', 'reward'))
     env = gym.make('CubeCrashSparse-v0')
     q = Qnet()
@@ -118,7 +119,7 @@ def her_cube(ep_number = 3000, buffer = 20000, batch = 32):
     succes_rate = []
     
     
-    for n_epi in range(ep_number):
+    for n_epi in range(n_episodes_):
         epsilon = max(0.01, 0.08 - 0.01*(n_epi/200)) #Linear annealing from 8% to 1%
         s = torch.tensor(np.mean(env.reset(),axis = 2))        
         goal = get_goal(s)      
@@ -159,4 +160,3 @@ def her_cube(ep_number = 3000, buffer = 20000, batch = 32):
             
     env.close()
     return succes_rate
-

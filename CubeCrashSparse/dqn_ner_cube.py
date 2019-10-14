@@ -88,7 +88,12 @@ def train(q, q_target, memory, optimizer):
         optimizer.step()
         
 
-def ner_cube():
+def ner_cube(n_episodes_, batch_size_, buf_size_):
+    global buffer_limit
+    buffer_limit = buf_size_
+    global batch_size
+    batch_size = batch_size_
+
     HindsightTransition = namedtuple('HindsightTransition', ('state', 'action', 'next_state', 'reward'))
     env = gym.make('CubeCrashSparse-v0')
     q = Qnet()
@@ -101,7 +106,7 @@ def ner_cube():
     optimizer = optim.Adam(q.parameters(), lr=learning_rate)
     succes_rate = []
    
-    for n_epi in range(10000):
+    for n_epi in range(n_episodes_):
         epsilon = max(0.01, 0.08 - 0.01*(n_epi/200)) #Linear annealing from 8% to 1%
         s = torch.tensor(np.mean(env.reset(),axis = 2))        
         transitions = []
@@ -134,6 +139,3 @@ def ner_cube():
             
     env.close()
     return succes_rate
-
-if __name__ == '__main__':
-    ner_cube()
