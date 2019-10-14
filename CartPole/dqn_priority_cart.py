@@ -179,7 +179,7 @@ def priority_cart():
             #     train_counter += 1
 
             if done:
-                if reward == 499:
+                if reward >= 499:
                     success += 1
                 break
             if memory.size() >= BUFFER_SIZE:
@@ -200,3 +200,4 @@ def priority_cart():
 
 if __name__ == '__main__':
     priority_cart()
+

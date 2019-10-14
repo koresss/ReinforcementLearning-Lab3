@@ -10,6 +10,7 @@ import math
 import torch.nn.functional as F
 import torch.optim as optim
 from collections import namedtuple
+import matplotlib.pyplot as plt
 #Hyperparameters
 learning_rate = 0.0005
 gamma         = 0.98
@@ -89,6 +90,16 @@ def train(q, q_target, memory, optimizer):
         #print(loss)
         loss.backward()
         optimizer.step()
+        
+        
+def get_goal(s):
+    goal = s.clone()
+    goal[goal<255] = 0.0   
+    
+    start_idx = torch.argmin(goal[-1,:]).item() - random.randint(2,8)
+    goal[-1,start_idx:start_idx+3] = 85.0
+    #plt.imshow(goal)
+    return goal
 
 def her_cube():
     HindsightTransition = namedtuple('HindsightTransition', ('state', 'action', 'next_state', 'reward'))
@@ -103,12 +114,11 @@ def her_cube():
     optimizer = optim.Adam(q.parameters(), lr=learning_rate)
     succes_rate = []
     
-    true_goal = False
+    
     for n_epi in range(10000):
         epsilon = max(0.01, 0.08 - 0.01*(n_epi/200)) #Linear annealing from 8% to 1%
-        s = torch.tensor(np.mean(env.reset(),axis = 2))
-        if not true_goal:
-            goal = torch.tensor(np.mean(env.reset(),axis = 2))        
+        s = torch.tensor(np.mean(env.reset(),axis = 2))        
+        goal = get_goal(s)      
         transitions = []
        
         for t in range(600):
@@ -116,21 +126,19 @@ def her_cube():
             s_prime, r, done, info = env.step(a)
             s_prime = np.mean(s_prime,axis = 2)
             done_mask = 0.0 if done else 1.0
-            if true_goal:
-                memory.put((s,a,r/1.0,s_prime, done_mask, goal))
+            
+            memory.put((s,a,r/1.0,s_prime, done_mask, goal))
             transitions.append(HindsightTransition(s, a, s_prime, r))
             s = torch.tensor(s_prime)
             score += r           
             if done:
                 if r == 1:                    
-                    n_success += 1
-                    goal = s
-                    true_goal = True
+                    n_success += 1                    
                 break           
             
             
-        if true_goal:           
-            for i in range(len(transitions)):
+                  
+        for i in range(len(transitions)):
                 hindsight_goal_state = transitions[np.random.randint(i,len(transitions))].state
                 if np.array_equal(torch.tensor(transitions[i].next_state), hindsight_goal_state):
                     memory.put((transitions[i].state, transitions[i].action,torch.tensor([1.0]), transitions[i].next_state,0.0, hindsight_goal_state))

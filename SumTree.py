@@ -10,6 +10,7 @@ class SumTree:
         self.tree = np.zeros(2 * capacity - 1)  # vector representation of tree
         self.position = 0
         self.capacity = capacity
+        self.n_entries = 0
 
     # total sum of the priorities
     def total(self):
@@ -44,6 +45,9 @@ class SumTree:
         # reset the writing position to the beginning of the leaves
         if self.position >= self.capacity:
             self.position = 0
+            
+        if self.n_entries < self.capacity:
+            self.n_entries += 1
 
     # find sample on leaf node
     def _retrieve(self, idx, s):

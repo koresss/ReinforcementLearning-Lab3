@@ -86,6 +86,7 @@ def train(q, q_target, memory, optimizer):
         optimizer.zero_grad()        
         loss.backward()
         optimizer.step()
+        
 
 def ner_cube():
     HindsightTransition = namedtuple('HindsightTransition', ('state', 'action', 'next_state', 'reward'))
@@ -104,8 +105,9 @@ def ner_cube():
         epsilon = max(0.01, 0.08 - 0.01*(n_epi/200)) #Linear annealing from 8% to 1%
         s = torch.tensor(np.mean(env.reset(),axis = 2))        
         transitions = []
-       
+        
         for t in range(600):
+            
             a = q.sample_action(s, epsilon)      
             s_prime, r, done, info = env.step(a)
             s_prime = np.mean(s_prime,axis = 2)
