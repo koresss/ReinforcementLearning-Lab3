@@ -39,3 +39,7 @@ if __name__ == "__main__":
 				,buf_size_=buf_size
 				)
 			)
+
+	# TODO: Compute Standard error of the mean for each interval
+	# TODO: Plot means for all the runs with the confidence interval
+	# TODO: Use 3 different hyperparameters for buf_size and batch_size
