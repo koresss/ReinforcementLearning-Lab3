@@ -20,6 +20,7 @@ if __name__ == "__main__":
                 ,buf_size_=buf_size
                 )
             )
+
     # CER
     succes_rates_cer = []
     for run in range(runs):
@@ -30,6 +31,7 @@ if __name__ == "__main__":
                 ,buf_size_=buf_size
                 )
             )
+        
     # HER
     succes_rates_her = []
     for run in range(runs):
