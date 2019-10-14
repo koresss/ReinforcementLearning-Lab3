@@ -13,10 +13,9 @@ from collections import namedtuple
 import matplotlib.pyplot as plt
 #Hyperparameters
 learning_rate = 0.0005
-gamma         = 0.98
-buffer_limit  = 50000
-batch_size    = 32
-
+gamma = 0.98
+buffer_limit = 20000
+batch_size = 32
 
 class ReplayBuffer():
     def __init__(self):
@@ -101,7 +100,11 @@ def get_goal(s):
     #plt.imshow(goal)
     return goal
 
-def her_cube():
+def her_cube(ep_number = 3000, buffer = 20000, batch = 32):
+    global buffer_limit
+    buffer_limit = buffer
+    global batch_size
+    batch_size = batch
     HindsightTransition = namedtuple('HindsightTransition', ('state', 'action', 'next_state', 'reward'))
     env = gym.make('CubeCrashSparse-v0')
     q = Qnet()
@@ -115,7 +118,7 @@ def her_cube():
     succes_rate = []
     
     
-    for n_epi in range(10000):
+    for n_epi in range(ep_number):
         epsilon = max(0.01, 0.08 - 0.01*(n_epi/200)) #Linear annealing from 8% to 1%
         s = torch.tensor(np.mean(env.reset(),axis = 2))        
         goal = get_goal(s)      
@@ -135,8 +138,7 @@ def her_cube():
                 if r == 1:                    
                     n_success += 1                    
                 break           
-            
-            
+               
                   
         for i in range(len(transitions)):
                 hindsight_goal_state = transitions[np.random.randint(i,len(transitions))].state
@@ -158,5 +160,3 @@ def her_cube():
     env.close()
     return succes_rate
 
-if __name__ == '__main__':
-    her_cube()
