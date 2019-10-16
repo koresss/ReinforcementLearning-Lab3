@@ -10,6 +10,8 @@ import math
 import torch.nn.functional as F
 import torch.optim as optim
 from collections import namedtuple
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #Hyperparameters
 learning_rate = 0.0005
 gamma         = 0.98
@@ -41,7 +43,7 @@ class ReplayBuffer():
         #print(goal_lst)
         #print(goal_lst)
         return torch.stack(s_lst), torch.tensor(a_lst), \
-               torch.tensor(r_lst), torch.tensor(s_prime_lst, dtype=torch.float), \
+               torch.tensor(r_lst), torch.stack(s_prime_lst), \
                torch.tensor(done_mask_lst)
     
     def size(self):
@@ -76,7 +78,9 @@ class Qnet(nn.Module):
 def train(q, q_target, memory, optimizer):
     #for i in range(10):
         s,a,r,s_prime,done_mask = memory.sample(batch_size)       
-        s_prime=s_prime.to(dtype=torch.float64)
+        r = r.to(device)
+        a = a.to(device)
+        done_mask = done_mask.to(device)
         #print(s_prime)
         #print(goal)
         q_out = q(s.unsqueeze(1).float())
@@ -97,8 +101,8 @@ def cer_cube(n_episodes_, batch_size_, buf_size_):
 
     HindsightTransition = namedtuple('HindsightTransition', ('state', 'action', 'next_state', 'reward'))
     env = gym.make('CubeCrashSparse-v0')
-    q = Qnet()
-    q_target = Qnet()
+    q = Qnet().to(device)
+    q_target = Qnet().to(device)
     q_target.load_state_dict(q.state_dict())
     memory = ReplayBuffer()
     n_success = 0
@@ -109,18 +113,18 @@ def cer_cube(n_episodes_, batch_size_, buf_size_):
    
     for n_epi in range(n_episodes_):
         epsilon = max(0.01, 0.08 - 0.01*(n_epi/200)) #Linear annealing from 8% to 1%
-        s = torch.tensor(np.mean(env.reset(),axis = 2))        
+        s = torch.tensor(np.mean(env.reset(),axis = 2)).to(device)       
         transitions = []
        
         for t in range(600):
             a = q.sample_action(s, epsilon)      
             s_prime, r, done, info = env.step(a)
-            s_prime = np.mean(s_prime,axis = 2)
+            s_prime = torch.tensor(np.mean(s_prime,axis = 2)).to(device)
             done_mask = 0.0 if done else 1.0
             
             memory.put((s,a,r/1.0,s_prime, done_mask))
             transitions.append(HindsightTransition(s, a, s_prime, r))
-            s = torch.tensor(s_prime)
+            s = s_prime.clone()
             score += r           
             if done:
                 if r == 1:                    
