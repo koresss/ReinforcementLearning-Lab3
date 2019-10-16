@@ -100,7 +100,7 @@ def get_goal(s):
     goal = s.clone()
     goal[goal<255] = 0.0   
     
-    start_idx = torch.argmin(goal[-1,:]).item() - random.randint(2,8)
+    start_idx = (goal[-1,:] < 255).cpu().numpy().argmax() + random.randint(0,6)    
     goal[-1,start_idx:start_idx+3] = 85.0
     
     #plt.imshow(s.cpu())
@@ -114,7 +114,7 @@ def her_cube(n_episodes_, batch_size_, buf_size_):
     global batch_size
     batch_size = batch_size_
     
-    HindsightTransition = namedtuple('HindsightTransition', ('state', 'action', 'next_state', 'reward'))
+    HindsightTransition = namedtuple('HindsightTransition', ('state', 'action', 'next_state', 'reward', 'mask'))
     env = gym.make('CubeCrashSparse-v0')
     q = Qnet().to(device)
     q_target = Qnet().to(device)
@@ -129,33 +129,37 @@ def her_cube(n_episodes_, batch_size_, buf_size_):
     
     for n_epi in range(n_episodes_):
         epsilon = max(0.01, 0.08 - 0.01*(n_epi/200)) #Linear annealing from 8% to 1%
-        s = torch.tensor(np.mean(env.reset(),axis = 2)).to(device)        
-        goal = get_goal(s)      
+        s = torch.tensor(np.mean(env.reset(),axis = 2)).to(device)           
         transitions = []
+        goal = get_goal(s)
        
         for t in range(600):
             a = q.sample_action(s, epsilon,goal)      
             s_prime, r, done, info = env.step(a)
             s_prime = torch.tensor(np.mean(s_prime,axis = 2)).to(device)
-            done_mask = 0.0 if done else 1.0
+            done_mask = 0.0 if done else 1.0            
             
-            memory.put((s,a,r/1.0,s_prime, done_mask, goal))
-            transitions.append(HindsightTransition(s, a, s_prime, r))
+            transitions.append(HindsightTransition(s, a, s_prime, r, done_mask))
             s = s_prime.clone()
             score += r           
-            if done:
-                if r == 1:                    
-                    n_success += 1                    
-                break           
-               
+            if done:                  
+                if r == 1:     
+                    goal = s_prime.clone()
+                    n_success += 1  
+                    
+                for i in range(len(transitions)):
+                    memory.put((transitions[i].state, transitions[i].action, transitions[i].reward, transitions[i].next_state, transitions[i].mask, goal))
+                    
+                    #hindsight_goal_state = transitions[np.random.randint(i,len(transitions))].next_state
+                    hindsight_goal_state = transitions[-1].next_state
+                    if np.array_equal((transitions[i].next_state).cpu(), hindsight_goal_state.cpu()):
+                        memory.put((transitions[i].state, transitions[i].action, 1.0, transitions[i].next_state, 0.0, hindsight_goal_state))
+                    else:
+                        memory.put((transitions[i].state, transitions[i].action, 0.0, transitions[i].next_state, 1.0, hindsight_goal_state))
+                               
+                break                
                   
-        for i in range(len(transitions)):
-                hindsight_goal_state = transitions[np.random.randint(i,len(transitions))].state
-                if np.array_equal((transitions[i].next_state).cpu(), hindsight_goal_state.cpu()):
-                    memory.put((transitions[i].state, transitions[i].action,torch.tensor([1.0]), transitions[i].next_state,0.0, hindsight_goal_state))
-                else:
-                    memory.put((transitions[i].state, transitions[i].action,transitions[i].reward, transitions[i].next_state,1.0, hindsight_goal_state))
-            
+       
         if memory.size()>2000:
                 train(q, q_target, memory, optimizer)
                 
