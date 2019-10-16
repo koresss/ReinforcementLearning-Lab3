@@ -102,7 +102,10 @@ def get_goal(s):
     
     start_idx = torch.argmin(goal[-1,:]).item() - random.randint(2,8)
     goal[-1,start_idx:start_idx+3] = 85.0
-    #plt.imshow(goal)
+    
+    #plt.imshow(s.cpu())
+    #plt.figure()
+    #plt.imshow(goal.cpu())
     return goal
 
 def her_cube(n_episodes_, batch_size_, buf_size_):
@@ -148,10 +151,10 @@ def her_cube(n_episodes_, batch_size_, buf_size_):
                   
         for i in range(len(transitions)):
                 hindsight_goal_state = transitions[np.random.randint(i,len(transitions))].state
-                if np.array_equal(transitions[i].next_state, hindsight_goal_state):
+                if np.array_equal((transitions[i].next_state).cpu(), hindsight_goal_state.cpu()):
                     memory.put((transitions[i].state, transitions[i].action,torch.tensor([1.0]), transitions[i].next_state,0.0, hindsight_goal_state))
                 else:
-                    memory.put((transitions[i].state, transitions[i].action,transitions[i].reward, transitions[i].next_state,0.0, hindsight_goal_state))
+                    memory.put((transitions[i].state, transitions[i].action,transitions[i].reward, transitions[i].next_state,1.0, hindsight_goal_state))
             
         if memory.size()>2000:
                 train(q, q_target, memory, optimizer)
